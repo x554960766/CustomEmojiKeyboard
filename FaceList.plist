@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<string>[VS_SMILE]</string>
+	<string>[VS_LIKE]</string>
+	<string>[VS_FUNNY]</string>
+	<string>[VS_CUTE]</string>
+	<string>[VS_NAUGHTY]</string>
+	<string>[VS_SURPRISE]</string>
+	<string>[VS_SHY]</string>
+	<string>[VS_CRY]</string>
+	<string>[VS_DOWNCAST]</string>
+	<string>[VS_ANGRY]</string>
+	<string>[VS_GRIMACE]</string>
+	<string>[VS_BLUES]</string>
+	<string>[VS_KISS1]</string>
+	<string>[VS_GRIN]</string>
+	<string>[VS_SATISFIED]</string>
+	<string>[VS_SCARED]</string>
+	<string>[VS_LEER]</string>
+	<string>[VS_LOL]</string>
+	<string>[VS_GLUM]</string>
+	<string>[VS_MAD]</string>
+	<string>[VS_LAUGH]</string>
+	<string>[VS_MASK]</string>
+	<string>[VS_SAD]</string>
+	<string>[VS_TERROR]</string>
+	<string>[VS_NERVOUS]</string>
+	<string>[VS_SLEEPY]</string>
+	<string>[VS_KISS2]</string>
+	<string>[VS_SMIRK]</string>
+	<string>[VS_GLOOM]</string>
+	<string>[VS_CONFUSED]</string>
+	<string>[VS_DISSATISFIED]</string>
+	<string>[VS_EMBARRASSED]</string>
+	<string>[VS_ALIEN]</string>
+	<string>[VS_COFFEE]</string>
+	<string>[VS_THUMBS_UP]</string>
+	<string>[VS_VICTORY]</string>
+	<string>[VS_ROSY_LIPS]</string>
+	<string>[VS_HEART]</string>
+	<string>[VS_CLAP]</string>
+	<string>[VS_LOVECARD]</string>
+</array>
+</plist>
