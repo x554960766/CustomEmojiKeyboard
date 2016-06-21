@@ -26,7 +26,9 @@
     UICollectionView *mCollectionView;
     UIPageControl    *mPageControl;
     UIView * dismissView ;
-    
+    NSMutableAttributedString * textViewAttributedString; //当前textView显示的字
+    NSAttributedString * tempAttributeString;  // 用了拼接临时使用
+    NSInteger insertIndex; // 用来记录目前光标的位置
     
 }
 @property(nonatomic,strong)NSArray *DataSource;
@@ -45,6 +47,7 @@
         faceViewFrame = frame;
         self.backgroundColor = [UIColor whiteColor];
         _DataSource = [faceImageArray copy];
+        [self insertDelegateEmoji];
         [self resetDasource];
         _faceButton = [[UIButton alloc]initWithFrame:CGRectMake(5, 7, 26, 26)];
         [_faceButton setImage:[UIImage imageNamed:faceButtonImage] forState:UIControlStateNormal];
@@ -52,6 +55,7 @@
         [self addSubview:_faceButton];
         self.myTextView = [[LBDCustomTextView alloc]initWithFrame:CGRectMake(35, 2, frame.size.width - 88, 36)];
         self.myTextView .delegate = self;
+        self.myTextView.font = [UIFont systemFontOfSize:18];
         self.myTextView .backgroundColor = [UIColor whiteColor];
         [self addSubview: self.myTextView ];
         UIView *line = [[UIView alloc]initWithFrame:CGRectMake(0, self.myTextView.bottomY+5, frame.size.width, 1)];
@@ -68,10 +72,11 @@
         
         [self addSubview:_sendButton];
         layout = [[UICollectionViewFlowLayout alloc]init];
-        [layout setItemSize:CGSizeMake(frame.size.width/7-10, (210 - 20)/5)];
+        [layout setItemSize:CGSizeMake((frame.size.width - 20)/7, (190 - 30)/4)];
         [layout setScrollDirection:UICollectionViewScrollDirectionHorizontal];
-        // layout.sectionInset = UIEdgeInsetsMake(6,6,6, 6);
-        
+        layout.sectionInset = UIEdgeInsetsMake(0,0,0,0);
+        layout.minimumLineSpacing = 0;
+        layout.minimumInteritemSpacing = 0;
         mCollectionView = [[UICollectionView alloc]initWithFrame:CGRectZero collectionViewLayout:layout];
         mCollectionView.pagingEnabled = YES;
         mCollectionView.showsHorizontalScrollIndicator = NO;
@@ -79,26 +84,20 @@
         mCollectionView.backgroundColor = [UIColor clearColor];
         mCollectionView.dataSource = self;
         mCollectionView.delegate   = self;
-        
         [mCollectionView registerClass:[LBDChatMessageFaceCollectionCell class] forCellWithReuseIdentifier:kReuseID];
-        
         [self addSubview:mCollectionView];
-        
-        [mCollectionView autoPinEdge:ALEdgeTop toEdge:ALEdgeBottom ofView: self.myTextView  withOffset:10];
-        [mCollectionView autoPinEdgeToSuperviewEdge:ALEdgeLeft withInset:5];
-        [mCollectionView autoPinEdgeToSuperviewEdge:ALEdgeRight withInset:5];
-        [mCollectionView autoPinEdgeToSuperviewEdge:ALEdgeBottom withInset:20];
+        [mCollectionView autoPinEdge:ALEdgeTop toEdge:ALEdgeBottom ofView: self.myTextView  withOffset:20];
+        [mCollectionView autoPinEdgeToSuperviewEdge:ALEdgeLeft withInset:10];
+        [mCollectionView autoPinEdgeToSuperviewEdge:ALEdgeRight withInset:10];
+        [mCollectionView autoPinEdgeToSuperviewEdge:ALEdgeBottom withInset:30];
         mPageControl = [[UIPageControl alloc]initForAutoLayout];
-        mPageControl.numberOfPages = (faceImageArray.count/28) +1;
+        mPageControl.numberOfPages = (faceImageArray.count/21) +1;
         mPageControl.userInteractionEnabled = NO;
         mPageControl.backgroundColor = [UIColor clearColor];
         mPageControl.currentPage  = 0;
-        
         mPageControl.currentPageIndicatorTintColor = kSelectedColorPageControl;
         mPageControl.pageIndicatorTintColor  = kUnSelectedColorPageControl;
-        
         [self addSubview:mPageControl];
-        
         mPageControl.translatesAutoresizingMaskIntoConstraints = NO;
         [mPageControl autoAlignAxisToSuperviewAxis:ALAxisVertical];
         [mPageControl autoPinEdge:ALEdgeTop toEdge:ALEdgeBottom ofView:mCollectionView withOffset:-10];
@@ -113,12 +112,17 @@
     [ self.myTextView  resignFirstResponder];
     sender.selected = !sender.selected;
     mPageControl.hidden = !sender.selected;
+    
     if (sender.selected) {
+        self.keyboardHeight = 190;
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"customKeyboardHeight" object:[NSNumber numberWithFloat:self.keyboardHeight]];
         [UIView animateWithDuration:0.25 animations:^{
-            self.frame = CGRectMake(faceViewFrame.origin.x , faceViewFrame.origin.y - 210, faceViewFrame.size.width ,faceViewFrame.size.height + 210);
+            self.frame = CGRectMake(faceViewFrame.origin.x , faceViewFrame.origin.y - 190, faceViewFrame.size.width ,faceViewFrame.size.height + 190);
         }];
     }
     else {
+        self.keyboardHeight = 0;
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"customKeyboardHeight" object:[NSNumber numberWithFloat:self.keyboardHeight]];
         [UIView animateWithDuration:0.25 animations:^{
             self.frame = faceViewFrame;
         }];
@@ -137,6 +141,10 @@
     return self.DataSource.count;
 }
 
+-(UIEdgeInsets)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout insetForSectionAtIndex:(NSInteger)section
+{
+    return UIEdgeInsetsMake(0,0,0,0);
+}
 -(UICollectionViewCell*)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath
 {
     LBDChatMessageFaceCollectionCell*cell = [collectionView dequeueReusableCellWithReuseIdentifier:kReuseID forIndexPath:indexPath];
@@ -148,11 +156,35 @@
 
 -(void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    if (self.sendMessageString) {
-        [self.sendMessageString appendString:_DataSource[indexPath.item][@"image"]];
-    }
-    else {
-        self.sendMessageString = [[NSMutableString alloc]initWithString:_DataSource[indexPath.item][@"image"]];
+     NSMutableAttributedString * textViewAttributeStr = self.myTextView.attributedText.mutableCopy;
+         if ([@"[VS_DELETE]" isEqualToString:_DataSource[indexPath.item][@"image"]]) {
+             if (insertIndex <= textViewAttributeStr.length && insertIndex > 0) {
+                 [textViewAttributeStr deleteCharactersInRange:NSMakeRange(insertIndex-1, 1)];
+                 insertIndex = insertIndex - 1;
+             }
+            
+         }
+         else {
+             [textViewAttributeStr insertAttributedString:[_DataSource[indexPath.item][@"image"] changeStringToAttribuedString] atIndex:insertIndex];
+             insertIndex = insertIndex + 1;
+         }
+     self.myTextView .attributedText = textViewAttributeStr;
+    /*
+    if ([@"[VS_DELETE]" isEqualToString:_DataSource[indexPath.item][@"image"]]) {
+        if (self.sendMessageString) {
+            if (self.sendMessageString.length > 0) {
+                 [self backFaceWithLocation:self.sendMessageString.length];
+            }
+        }
+        
+    }else{
+        
+        if (self.sendMessageString) {
+            [self.sendMessageString appendString:_DataSource[indexPath.item][@"image"]];
+        }
+        else {
+            self.sendMessageString = [[NSMutableString alloc]initWithString:_DataSource[indexPath.item][@"image"]];
+        }
     }
     NSMutableAttributedString * textString = [[NSMutableAttributedString alloc]initWithAttributedString:[self.sendMessageString changeStringToAttribuedString]];
     [textString addAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:16]} range:NSMakeRange(0, textString.length)];
@@ -161,38 +193,70 @@
     //    if ([_delegate respondsToSelector:@selector(selectedFaceImage:)]) {
     //        [_delegate selectedFaceImage:_DataSource[indexPath.item][@"image"]];
     //    }
+     */
 }
-
 -(void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
 {
     if (scrollView == mCollectionView) {
-        mPageControl.currentPage = (scrollView.contentOffset.x)/(scrollView.bounds.size.width - 10);
+        mPageControl.currentPage = (scrollView.contentOffset.x)/(scrollView.bounds.size.width );
         
     }
 }
 
 #pragma mark - UITextViewDelegate
 
+
 -(BOOL)textViewShouldBeginEditing:(UITextView *)textView {
- //   textView.selectedRange = NSMakeRange(_sendMessageString.length , 0);
-    
-    self.frame = CGRectMake(0,self.frame.origin.y,self.frame.size.width , 55);
+       self.frame = CGRectMake(0,self.frame.origin.y,self.frame.size.width , 55);
     _faceButton.selected = NO;
+    mPageControl.hidden = YES;
     return  YES;
 }
 
+-(void)textViewDidChangeSelection:(UITextView *)textView {
+ //   insertIndex = textView.attributedText.length;
+    if (textView.selectedTextRange) {
+        if ([textView isFirstResponder]) {
+        insertIndex = [textView selectedRange].location ;
+        }
+    } else {
+        insertIndex = insertIndex + 1;
+    }
+    
+
+}
 -(BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text{
-    NSLog(@"range == %ld",range.location);
+    
     if ([text lbd_containsEmoji]) {
         return  NO;
     }
-    NSAttributedString * tempAtt = [  self.myTextView .attributedText attributedSubstringFromRange:NSMakeRange(0, range.location+range.length)];
+    
+    if(textViewAttributedString == nil) {
+        tempAttributeString = [text changeStringToAttribuedString];
+     //   textViewAttributedString = [[NSMutableAttributedString alloc] initWithAttributedString:tempAttributeString];
+    }
+    else {
+         tempAttributeString = [text changeStringToAttribuedString];
+    //    [textViewAttributedString appendAttributedString:tempAttributeString];
+    }
+    NSMutableAttributedString * textViewAttributeStr = self.myTextView.attributedText.mutableCopy;
+    [textViewAttributeStr replaceCharactersInRange:range withAttributedString:tempAttributeString];
+   
+    self.myTextView.attributedText = textViewAttributeStr;
+     textView.selectedRange = NSMakeRange(range.location + text.length, 0);
+    
+    /*
+    NSAttributedString * tempAtt = [ self.myTextView .attributedText attributedSubstringFromRange:range];
     NSString * tempStr = [tempAtt changeToString];
     if (self.sendMessageString) {
         if (![text isEqualToString:@""]){
-           
-        
-           [self.sendMessageString insertString:text atIndex:tempStr.length];
+            
+            
+            [self.sendMessageString insertString:text atIndex:tempStr.length];
+            NSMutableAttributedString * textString = [[NSMutableAttributedString alloc]initWithAttributedString:[self.sendMessageString changeStringToAttribuedString]];
+            [textString addAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:16]} range:NSMakeRange(0, textString.length)];
+            self.myTextView.text = _sendMessageString;
+            self.myTextView .attributedText = textString;
             
             //  textView.selectedRange = NSMakeRange(range.location, 0);
             //  [sendMessageString appendString:text];
@@ -202,22 +266,29 @@
             if(range.length <= 1) {
                 
                 [self backFaceWithLocation:tempStr.length];
+                if (self.myTextView .attributedText.length > 0){
+                    self.myTextView .attributedText = [self.myTextView.attributedText attributedSubstringFromRange:NSMakeRange(0, self.myTextView.attributedText.length - range.length)];
+                }
             }else {
                 [self.sendMessageString replaceCharactersInRange:range withString:text];
+                NSMutableAttributedString * textString = [[NSMutableAttributedString alloc]initWithAttributedString:[self.sendMessageString changeStringToAttribuedString]];
+                [textString addAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:16]} range:NSMakeRange(0, textString.length)];
+                self.myTextView.text = _sendMessageString;
+                self.myTextView .attributedText = textString;
             }
-            
-            
         }
     }
     else {
         self.sendMessageString = [[NSMutableString alloc]initWithString:text];
+        NSMutableAttributedString * textString = [[NSMutableAttributedString alloc]initWithAttributedString:[self.sendMessageString changeStringToAttribuedString]];
+        [textString addAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:16]} range:NSMakeRange(0, textString.length)];
+        self.myTextView.text = _sendMessageString;
+        self.myTextView .attributedText = textString;
     }
-    NSMutableAttributedString * textString = [[NSMutableAttributedString alloc]initWithAttributedString:[self.sendMessageString changeStringToAttribuedString]];
-    [textString addAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:16]} range:NSMakeRange(0, textString.length)];
-     self.myTextView.text = _sendMessageString;
-    self.myTextView .attributedText = textString;
-   
+    
+    
     textView.selectedRange = NSMakeRange(range.location + text.length, 0);
+     */
     return  NO;   //禁止输入 防止显示错乱
 }
 -(void)sendButtonAction:(UIButton *)sendButton {
@@ -225,10 +296,13 @@
     [UIView animateWithDuration:0.25 animations:^{
         self.frame = faceViewFrame;
     }];
+    self.keyboardHeight = 0;
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"customKeyboardHeight" object:[NSNumber numberWithFloat:self.keyboardHeight]];
     _faceButton.selected  = NO;
+    mPageControl.hidden = YES;
     if ([_delegate respondsToSelector:@selector(sendYouWriteMessage:)]) {
-        
-        [_delegate sendYouWriteMessage:self.sendMessageString];
+        insertIndex = 0; // 发送完成将 index 设置为0
+        [_delegate sendYouWriteMessage:[_myTextView.attributedText changeToString]];
     }
 }
 
@@ -276,11 +350,9 @@
 
 - (void)keyboardWillShow:(NSNotification *)noti{
     
-    
-    
     CGSize keyBoardSize = [[noti.userInfo objectForKey:UIKeyboardFrameEndUserInfoKey]CGRectValue].size;
-    NSLog(@"键盘的frame:: %@",NSStringFromCGSize(keyBoardSize));
-    
+    self.keyboardHeight = keyBoardSize.height;
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"customKeyboardHeight" object:[NSNumber numberWithFloat:self.keyboardHeight]];
     [UIView animateWithDuration:0.25 animations:^{
         self.y = faceViewFrame.origin.y - keyBoardSize.height ;
     }];
@@ -288,7 +360,8 @@
 }
 
 - (void)keyboardWillHidden:(NSNotification *)noti{
-    
+    self.keyboardHeight = 0;
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"customKeyboardHeight" object:[NSNumber numberWithFloat:self.keyboardHeight]];
     [UIView animateWithDuration:0.25 animations:^{
         self.y = faceViewFrame.origin.y;
     }];
@@ -298,62 +371,68 @@
     NSMutableArray *tempArray = [[NSMutableArray alloc]init];
     NSMutableArray *finishArray = [[NSMutableArray alloc] init];
     // 判断表情是否铺满最后一页
-    if ((_DataSource.count%28)<25) {
-        int page = (int)(_DataSource.count/4)/7 ;
-        for (int j = 28*page; j< _DataSource.count; j++) {
+    if ((_DataSource.count%21)) {
+        int page = (int)(_DataSource.count/3)/7 ;
+        for (int j = 21*page; j< _DataSource.count; j++) {
             [tempArray addObject:_DataSource[j] ];
         }
         int lineNumber = 0;
         for (int i = 0; i<tempArray.count; i++) {
-            lineNumber = (i+1)/8;
+            lineNumber = i/7;
             
             if (lineNumber == 0) {
                 [finishArray addObject:tempArray[i]];
-                for (int n = 0; n < 3; n++) {
+                for (int n = 0; n < 2; n++) {
                     [finishArray addObject:@{@"image":@""}];
                 }
             }
             else {
-                [finishArray replaceObjectAtIndex:  ((i+1)-8*lineNumber)*4+lineNumber withObject:tempArray[i]];
+                [finishArray replaceObjectAtIndex:  (i-7*lineNumber)*3+lineNumber withObject:tempArray[i]];
             }
         }
         NSMutableArray * mutableArray = [[NSMutableArray alloc]init];
-        for (int m =0; m<page*28; m++) {
+        for (int m =0; m<page*21; m++) {
             [mutableArray addObject:_DataSource[m]];
         }
         [mutableArray addObjectsFromArray:finishArray];
         
         _DataSource = mutableArray;
-        //      int spaceImageNumber = 28*(page+1) - (int)mutable.count;
+        //      int spaceImageNumber = 21*(page+1) - (int)mutable.count;
         
     }
     
 }
 
-//-(NSArray *)DataSource
-//{
-//    if (_DataSource) {
-//        return _DataSource;
-//    }
-//
-//    NSMutableArray *mutable = [NSMutableArray arrayWithCapacity:_DataSource.count+8];
-//
-//    int del = 0;
-//    for (int i=1; i<=_DataSource.count; i++)
-//    {
-//        if(((i+del)%(4*8 )))
-//        {//增加删除按键
-//            del ++;
-//            [mutable addObject:@{@"image":@"aio_face_delete"}];
-//        }
-//
-//        [mutable addObject:_DataSource[i]];
-//    }
-//
-//    _DataSource = mutable;
-//
-//    return _DataSource;
-//}
+-(void)insertDelegateEmoji {
+    NSMutableArray *finishArray = [[NSMutableArray alloc] init];
+    int del = 0;
+    for (int i=1; i<=_DataSource.count; i++)
+    {
+        if(!((i+del)%(21)))
+        {//增加删除按键
+            del ++;
+            [finishArray addObject:@{@"image":@"[VS_DELETE]"}];
+        }
+        
+        [finishArray addObject:_DataSource[i-1]];
+    }
+    if ((_DataSource.count+del)%21) {
+        [finishArray addObject:@{@"image":@"[VS_DELETE]"}];
+    }
+    _DataSource = finishArray.copy;
+    
+}
+
+
+-(void)resignKeyboard;{
+    [self.myTextView resignFirstResponder];
+    [UIView animateWithDuration:0.25 animations:^{
+        self.frame = faceViewFrame;
+    }];
+    self.keyboardHeight = 0;
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"customKeyboardHeight" object:[NSNumber numberWithFloat:self.keyboardHeight]];
+    _faceButton.selected  = NO;
+    mPageControl.hidden = YES;}
 
 
 @end

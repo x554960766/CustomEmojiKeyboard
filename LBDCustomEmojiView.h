@@ -24,6 +24,7 @@
  *  显示表情键盘按钮
  */
 @property (nonatomic,strong) UIButton * faceButton;
+@property (nonatomic,assign) CGFloat   keyboardHeight;
 /**
  *  发送消息按钮
  */
@@ -42,5 +43,11 @@
  *  @return 表情键盘的初始化
  */
 -(instancetype)initWithFrame:(CGRect)frame andFaceButtonImage:(NSString *)faceButtonImage andSendButtonImage:(NSString *)sendButtonImage andFaceImageNamesArray:(NSArray<NSDictionary *> *)faceImageArray;
+
+
+/**
+ *  收起键盘
+ */
+-(void)resignKeyboard;
 
 @end
