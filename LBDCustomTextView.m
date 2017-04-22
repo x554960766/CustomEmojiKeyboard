@@ -7,6 +7,7 @@
 //
 
 #import "LBDCustomTextView.h"
+#import "UIView+Extension.h"
 
 @interface LBDCustomTextView ()
 

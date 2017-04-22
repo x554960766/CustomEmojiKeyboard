@@ -16,7 +16,34 @@
 /// 删除字符串内的表情符号，如果有则返回删除后的表情符号，如果没有，则返回nil
 - (NSString *)lbd_removeEmojiWithContainsEmoji:(BOOL *)containsEmoji;
 
--(NSAttributedString *)changeStringToAttribuedString ;
+
+/// 千位分隔符
+-(NSString *)formatThousandString;
+
+-(NSAttributedString *)changeToEmojiStringWithHaveReply:(BOOL)haveReply;
+
+/**
+ 根据图片名字返回一个图片副文本
+
+ @param imageName 图片名字
+ @param imageRect 图片大小
+
+ @return 副文本
+ */
++(NSAttributedString *)returnAttributedStringWithImageName:(NSString *)imageName andImageRect:(CGRect)imageRect;
+
+/**
+ 返回一个插入图片的副文本
+
+ @param imageName  图片名字
+ @param imageRect  图片大小
+ @param imageRange 图片位置
+
+ @return 副文本
+ */
+-(NSAttributedString *)returnAttributedStringWithImageName:(NSString *)imageName andImageRect:(CGRect)imageRect andInsertLocation:(NSInteger)location;
+
+
 @end
 
 @interface NSNumber (LBD)
@@ -28,5 +55,4 @@
 @interface NSNull (LBD)
 
 - (BOOL)lbd_isVailable;
-
 @end

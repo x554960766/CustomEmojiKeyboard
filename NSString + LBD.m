@@ -7,6 +7,13 @@
 //
 
 #import "NSString + LBD.h"
+#import <CoreText/CoreText.h>
+
+#define UIColorHex(hex) [UIColor colorWithRed:((hex>>16)&0x0000FF)/255.0 green:((hex>>8)&0x0000FF)/255.0 blue:((hex>>0)&0x0000FF)/255.0 alpha:1.0]
+
+
+#define KFacialSizeWidth  14
+#define KFacialSizeHeight 14
 
 @implementation NSNumber (LBD)
 
@@ -25,6 +32,17 @@
 
 @implementation NSString (LBD)
 
+
+
++(NSAttributedString *)returnAttributedStringWithImageName:(NSString *)imageName andImageRect:(CGRect)imageRect {
+    NSTextAttachment *textAttachment = [[NSTextAttachment alloc]init];
+    textAttachment.image = [UIImage imageNamed:imageName];
+    textAttachment.bounds = imageRect;
+    NSAttributedString * tempAttrat = [NSAttributedString attributedStringWithAttachment:textAttachment];
+    return tempAttrat;
+}
+
+
 /// 判断字符串是否是空白
 - (BOOL)lbd_isVailable; {
     return !(self.length <= 0
@@ -32,6 +50,7 @@
              || [self.lowercaseString isEqualToString:@"(null)"]
              || [self.lowercaseString isEqualToString:@"<null>"]
              || [self.lowercaseString isEqualToString:@"(null)"]
+             ||([self isKindOfClass:[NSNull class]])
              || [self stringByReplacingOccurrencesOfString:@" " withString:@""].length == 0 );
 }
 
@@ -111,115 +130,56 @@
 }
 
 
-#define KFacialSizeWidth  18
-#define KFacialSizeHeight 18
-
-
-
--(NSAttributedString *)changeStringToAttribuedString{
-    BOOL haveFaceImage = false;
-    NSMutableArray * textArray = [[NSMutableArray alloc] init];
-    [self getImageRangeWithArray:textArray];
-    int length = 0;
-    NSAttributedString * tempAttributedString = [[NSAttributedString alloc]initWithString:@""];
-    
-    if (textArray) {
-        for (int i = 0;i < [textArray count];i++) {
-            NSString *str=[textArray objectAtIndex:i];
-            
-            
-            // 因为回复人名只会出现在第一段里
-            if ( i==0 ){
-                for (int k = 0; k < str.length; k++) {
-                    char tempChar = [str characterAtIndex:k];
-                    
-                    if (tempChar == ':') {
-                        length = k - 7;
-                        break;
-                    }
-                }
-            }
-            
-            
-            if ([str hasPrefix: BEGIN_FLAG] && [str hasSuffix: END_FLAG])
-            {
-                //特别注意,根据括号长度写
-                haveFaceImage = YES;
-                NSString *imageName = [str substringWithRange:NSMakeRange(0, str.length)];
-                //如果是以中括号开始和结束,但是找不到对应的表情,则显示原字符串
-                UIImage *img = [UIImage imageNamed:imageName];
-                if(!img){
-                    //取出中括号中间的字符串
-                    NSString *noImageStr = [str substringWithRange:NSMakeRange(0, str.length)];
-                    NSAttributedString *normalAttStr = [[NSAttributedString alloc]initWithString:noImageStr ];
-                    
-                    NSMutableAttributedString *chatLabelAttStr = [[NSMutableAttributedString alloc]initWithAttributedString:tempAttributedString];
-                    [chatLabelAttStr appendAttributedString:normalAttStr];
-                    
-                    tempAttributedString = chatLabelAttStr;
-                    
-                    continue;
-                    
-                }
-                NSAttributedString *attachmentStr;
-                if([DMDevceManager isiOS7]){
-                    NSTextAttachment *textAttachment = [[NSTextAttachment alloc]init];
-                    textAttachment.image = [UIImage imageNamed:imageName];
-                    
-                    textAttachment.bounds = CGRectMake(3, -4, KFacialSizeWidth, KFacialSizeHeight);
-                    attachmentStr = [NSAttributedString attributedStringWithAttachment: textAttachment];
-                }else {
-                    attachmentStr = [[NSAttributedString alloc]initWithString:[NSString stringWithFormat:@"[%@]",imageName]];
-                }
-                NSMutableAttributedString *chatLabelAttributeStr = [[NSMutableAttributedString alloc]initWithAttributedString:tempAttributedString];
-                [chatLabelAttributeStr appendAttributedString:attachmentStr];
-                tempAttributedString = chatLabelAttributeStr;
-            }
-            else {
-                NSAttributedString *normalAttStr = [[NSAttributedString alloc]initWithString:str ];
-                NSMutableAttributedString *chatLabelAttStr = [[NSMutableAttributedString alloc]initWithAttributedString:tempAttributedString];
-                [chatLabelAttStr appendAttributedString:normalAttStr];
-                // 改变回复人的名字颜色
-                if (length > 0 ) {
-                    [chatLabelAttStr addAttributes:@{NSForegroundColorAttributeName:[UIColor orangeColor]} range:NSMakeRange(6, length+1)];
-                }
-                
-                tempAttributedString = chatLabelAttStr;
-            }
-        }
-    }
-    
-    return tempAttributedString;
+-(NSString *)formatThousandString {
+    NSNumberFormatter* numberFormatter = [[NSNumberFormatter alloc] init];
+    [numberFormatter setFormatterBehavior: NSNumberFormatterBehavior10_4];
+    [numberFormatter setNumberStyle: NSNumberFormatterDecimalStyle];
+    NSString *numberString = [numberFormatter stringFromNumber: [NSNumber numberWithInteger: [self integerValue]]];
+    return numberString;
 }
 
--(void)getImageRangeWithArray : (NSMutableArray*)array {
-    NSRange range=[self rangeOfString: BEGIN_FLAG];
-    NSRange range1=[self rangeOfString: END_FLAG];
-    
-    if (range.length > 0 && range1.length>0) {
-        if (range.location > 0) {
-            [array addObject:[self substringToIndex:range.location]];//加文字
-            [array addObject:[self substringWithRange:NSMakeRange(range.location, range1.location+1-range.location)]];//加表情
-            NSString *str=[self substringFromIndex:range1.location+1];
-            [str getImageRangeWithArray: array];
-        }
-        else {
-            NSString *nextstr=[self substringWithRange:NSMakeRange(range.location, range1.location+1-range.location)];
-            //NSLog(@"+++ nextStr %@",nextstr);
-            
-            //排除文字是“”的
-            if (nextstr.length > 0) {
-                [array addObject:nextstr];
-                NSString *str=[self substringFromIndex:range1.location+1];
-                [str getImageRangeWithArray: array];
-            }else {
-                return;
-            }
-        }
-        
-    } else if  (self != nil) {
-        [array addObject:self];
+
+-(NSAttributedString *)changeToEmojiStringWithHaveReply:(BOOL)haveReply {
+    static UIImage * tempImage = nil;
+   
+    NSMutableAttributedString * strAtt = [[NSMutableAttributedString alloc]initWithString:self];
+ 
+    NSString * pattern = @"\\[[_A-Za-z0-9]+\\]";
+    NSError *error = nil;
+    NSRegularExpression * re = [NSRegularExpression regularExpressionWithPattern:pattern options:NSRegularExpressionCaseInsensitive error:&error];
+    NSArray *results = [re matchesInString:self options:0 range:NSMakeRange(0, self.length)];
+    for (NSInteger i = results.count - 1; i >= 0; i--) {
+        NSTextCheckingResult * result = results[i];
+        NSString * imgStr = [strAtt.string substringWithRange:result.range];
+        NSTextAttachment *textAttachment = [[NSTextAttachment alloc]init];
+        tempImage = [UIImage imageNamed:imgStr];
+        textAttachment.image = tempImage;
+        textAttachment.bounds = CGRectMake(0, -3, KFacialSizeHeight*(tempImage.size.width/tempImage.size.height), KFacialSizeHeight);
+        NSAttributedString * strImage = [NSAttributedString attributedStringWithAttachment:textAttachment];
+        [strAtt replaceCharactersInRange:result.range withAttributedString:strImage];
     }
+    NSMutableParagraphStyle *paragraphStyle = [[NSMutableParagraphStyle alloc]init];
+    paragraphStyle.lineBreakMode = NSLineBreakByWordWrapping;
+    [strAtt addAttributes:@{NSParagraphStyleAttributeName:paragraphStyle} range:NSMakeRange(0, strAtt.length)];
+    
+    return  strAtt;
+}
+
+
+
+-(NSAttributedString *)returnAttributedStringWithImageName:(NSString *)imageName andImageRect:(CGRect)imageRect andInsertLocation:(NSInteger)location {
+    NSMutableAttributedString * finish = [[NSMutableAttributedString alloc]initWithString:self];
+    NSTextAttachment *textAttachment = [[NSTextAttachment alloc]init];
+    textAttachment.image = [UIImage imageNamed:imageName];
+    textAttachment.bounds = imageRect;
+    NSAttributedString * tempAttrat = [NSAttributedString attributedStringWithAttachment:textAttachment];
+    if (location>self.length) {
+        [finish insertAttributedString:tempAttrat atIndex:self.length];
+    }
+    else {
+        [finish insertAttributedString:tempAttrat atIndex:location];
+    }
+    return finish;
 }
 
 
